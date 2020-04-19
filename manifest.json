@@ -1,0 +1,8 @@
+{
+  "domain": "webthing",
+  "name": "Webthing",
+  "documentation": "https://github.com/hidaris/homeassistant-webthing/tree/master/",
+  "dependencies": [],
+  "codeowners": [],
+  "requirements": ["websockets"]
+}
