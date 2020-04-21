@@ -7,8 +7,11 @@ import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
 # Import the device class from the component that you want to support
+
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
+    ATTR_COLOR_TEMP,
+    ATTR_HS_COLOR,
     PLATFORM_SCHEMA,
     Light,
     SUPPORT_BRIGHTNESS,
@@ -96,15 +99,40 @@ class WebthingLight(WebthingDevice, Light):
         brightness control.
         """
         print(kwargs)
-        async with aiohttp.ClientSession() as session:
-            await session.put(self._url, json={'on': True})
-        # self._light.brightness = kwargs.get(ATTR_BRIGHTNESS, 255)
+        brightness = kwargs.get(ATTR_BRIGHTNESS)
+        color_temp = kwargs.get(ATTR_COLOR_TEMP)
+        hs_color = kwargs.get(ATTR_HS_COLOR)
+        if brightness:
+            async with aiohttp.ClientSession() as session:
+                await session.post(
+                    self._url + "/actions/set_brightness",
+                    json={"set_brightness": {"input": {"brightness": brightness}}},
+                )
+        elif color_temp:
+            async with aiohttp.ClientSession() as session:
+                await session.post(
+                    self._url + "/actions/set_color_temp",
+                    json={"set_color_temp": {"input": {"color_temp": color_temp}}},
+                )
+        elif hs_color:
+            async with aiohttp.ClientSession() as session:
+                await session.post(
+                    self._url + "/actions/set_hs_color",
+                    json={"set_hs_color": {"input": {"hs_color": color_temp}}},
+                )
+        else:
+            async with aiohttp.ClientSession() as session:
+                await session.post(
+                    self._url + "/actions/set_on",
+                    json={"set_on": {"input": {"on": True}}},
+                )
 
     async def async_turn_off(self, **kwargs):
         """Instruct the light to turn off."""
-        print(kwargs)
         async with aiohttp.ClientSession() as session:
-            await session.put(self._url, json={'on': False})
+            await session.post(
+                self._url + "/actions/set_on", json={"set_on": {"input": {"on": False}}}
+            )
 
     async def async_update(self):
         """
@@ -114,3 +142,7 @@ class WebthingLight(WebthingDevice, Light):
         if self._ws.data.get("on") is not None:
             self._on = self._ws.data.get("on")
             print(f"property on:{self._on}")
+
+        if self._ws.data.get("brightness"):
+            self._brightness = self._ws.data.get("brightness")
+            print(f"property on:{self._brightness}")
