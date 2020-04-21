@@ -95,7 +95,7 @@ class WebthingBinarySensor(WebthingDevice, BinarySensorDevice):
         Fetch new state data for this light.
         This is the only method that should fetch new data for Home Assistant.
         """
-        if self._ws.data.get("state"):
+        if self._ws.data.get("state") is not None:
             self._on = self._ws.data.get("state")
             print(f"property on:{self._on}")
         if self._ws.data.get("battery_level"):
