@@ -1,4 +1,4 @@
-"""Platform for webthing binary sensor integration."""
+"""Platform for webthing sensor integration."""
 import logging
 import aiohttp
 
@@ -7,18 +7,19 @@ import voluptuous as vol
 import homeassistant.helpers.config_validation as cv
 
 # Import the device class from the component that you want to support
-from homeassistant.components.binary_sensor import (
-    DEVICE_CLASS_MOTION,
-    BinarySensorDevice,
-)
 from homeassistant.const import (
     CONF_HOST,
     CONF_PASSWORD,
     CONF_USERNAME,
     STATE_OFF,
     STATE_ON,
+    DEVICE_CLASS_HUMIDITY,
+    DEVICE_CLASS_ILLUMINANCE,
+    DEVICE_CLASS_PRESSURE,
+    DEVICE_CLASS_TEMPERATURE,
+    TEMP_CELSIUS,
+    UNIT_PERCENTAGE,
 )
-
 
 from . import WebthingDevice
 
@@ -33,6 +34,14 @@ _LOGGER = logging.getLogger(__name__)
 #     }
 # )
 
+SENSOR_TYPES = {
+    "temperature": [TEMP_CELSIUS, None],
+    "humidity": [UNIT_PERCENTAGE, None],
+    "illumination": ["lm", None],
+    "lux": ["lx", None],
+    "pressure": ["hPa", None],
+    "bed_activity": ["μm", None],
+}
 
 async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the webthing platform."""
@@ -50,23 +59,27 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     # Add devices
     devices = []
     for thing in things:
-        if "BinarySensor" in thing["@type"]:
-            if "PIR" in thing["@type"]:
-                devices.append(WebthingBinarySensor(thing, "motion"))
+        if "Sensor" in thing["@type"]:
+            if "temperature" in thing["@type"]:
+                devices.append(WebthingSensor(thing, DEVICE_CLASS_TEMPERATURE))
+            if "humidity" in thing["@type"]:
+                devices.append(WebthingSensor(thing, DEVICE_CLASS_HUMIDITY))
+            if "pressure" in thing["@type"]:
+                devices.append(WebthingSensor(thing, DEVICE_CLASS_PRESSURE))
 
     print(devices)
     add_entities(devices)
 
 
-class WebthingBinarySensor(WebthingDevice, BinarySensorDevice):
-    """Representation of an Webthing BinarySensor."""
+class WebthingSensor(WebthingDevice):
+    """Representation of an Webthing Sensor."""
 
     def __init__(self, thing, device_class):
-        """Initialize an WebthingBinarySensor."""
+        """Initialize an WebthingSensor."""
         WebthingDevice.__init__(self, thing)
-        self._cover = thing
+        self._sensor = thing
         self._url = f"http://dev.wormhole.monad.site:8000/{self._uid}"
-        self._on = True  # thing["properties"]["on"]
+        self._state = ""
         self._battery_level = 100
         self._device_class = device_class
 
@@ -76,14 +89,17 @@ class WebthingBinarySensor(WebthingDevice, BinarySensorDevice):
         return {"battery_level": self._battery_level}
 
     @property
-    def is_on(self):
-        """Return true if the binary sensor is on."""
-        return self._on
-
-    @property
     def state(self):
         """Return the state of the binary sensor."""
-        return STATE_ON if self.is_on else STATE_OFF
+        return self._state
+
+    @property
+    def unit_of_measurement(self):
+        """Return the unit of measurement of this entity, if any."""
+        try:
+            return SENSOR_TYPES.get(self._device_class)[0]
+        except TypeError:
+            return None
 
     @property
     def device_class(self):
@@ -96,8 +112,14 @@ class WebthingBinarySensor(WebthingDevice, BinarySensorDevice):
         This is the only method that should fetch new data for Home Assistant.
         """
         if self._ws.data.get("state") is not None:
-            self._on = self._ws.data.get("state")
-            print(f"{self.name} property on:{self._on}")
+            self._state = self._ws.data.get("state")
+            print(f"{self.name} property state:{self._state}")
+        if self._ws.data.get("temperature"):
+            self._state = self._ws.data.get("temperature")
+            print(f"{self.name} property state:{self._state}")
+        if self._ws.data.get("humidity") is not None:
+            self._state = self._ws.data.get("humidity")
+            print(f"{self.name} property state:{self._state}")
         if self._ws.data.get("battery_level"):
             self._battery_level = self._ws.data.get("battery_level")
-            print(f"{self.name} property battery_level:{self._battery_level}")
+            print(f"property battery_level:{self._battery_level}")

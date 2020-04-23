@@ -35,7 +35,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_platform(hass, config, add_entities, discovery_info=None):
-    """Set up the Awesome Light platform."""
+    """Set up the webthing platform."""
     # Assign configuration variables.
     # The configuration check takes care they are present.
     # host = config[CONF_HOST]
