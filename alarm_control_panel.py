@@ -9,13 +9,8 @@ import homeassistant.helpers.config_validation as cv
 # Import the device class from the component that you want to support
 from homeassistant.components.alarm_control_panel import AlarmControlPanel
 
-from homeassistant.components.alarm_control_panel.const import (
-    SUPPORT_ALARM_ARM_AWAY,
-    SUPPORT_ALARM_ARM_HOME,
-)
+from homeassistant.components.alarm_control_panel.const import SUPPORT_ALARM_TRIGGER
 from homeassistant.const import (
-    STATE_ALARM_ARMED_AWAY,
-    STATE_ALARM_ARMED_HOME,
     STATE_ALARM_DISARMED,
     STATE_ALARM_PENDING,
     STATE_ALARM_TRIGGERED,
@@ -34,14 +29,15 @@ _LOGGER = logging.getLogger(__name__)
 #     }
 # )
 
-SENSOR_TYPES = {
-    "temperature": [TEMP_CELSIUS, None],
-    "humidity": [UNIT_PERCENTAGE, None],
-    "illumination": ["lm", None],
-    "lux": ["lx", None],
-    "pressure": ["hPa", None],
-    "bed_activity": ["μm", None],
-}
+# SENSOR_TYPES = {
+#     "temperature": [TEMP_CELSIUS, None],
+#     "humidity": [UNIT_PERCENTAGE, None],
+#     "illumination": ["lm", None],
+#     "lux": ["lx", None],
+#     "pressure": ["hPa", None],
+#     "bed_activity": ["μm", None],
+# }
+
 
 async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     """Set up the webthing platform."""
@@ -59,13 +55,14 @@ async def async_setup_platform(hass, config, add_entities, discovery_info=None):
     # Add devices
     devices = []
     for thing in things:
-        if "Sensor" in thing["@type"]:
-            if "temperature" in thing["@type"]:
-                devices.append(WebthingSensor(thing, DEVICE_CLASS_TEMPERATURE))
-            if "humidity" in thing["@type"]:
-                devices.append(WebthingSensor(thing, DEVICE_CLASS_HUMIDITY))
-            if "pressure" in thing["@type"]:
-                devices.append(WebthingSensor(thing, DEVICE_CLASS_PRESSURE))
+        if "Alarm" in thing["@type"]:
+            if "gas" in thing["@type"]:
+                devices.append(WebthingAlarmPanel(thing, "gas"))
+            if "smoke" in thing["@type"]:
+                devices.append(WebthingAlarmPanel(thing, "smoke"))
+        # if "Sensor" in thing["@type"]:
+        #     if "temperature" in thing["@type"]:
+        #         devices.append(WebthingAlarmPanel(thing, "gas"))
 
     print(devices)
     add_entities(devices)
@@ -77,11 +74,32 @@ class WebthingAlarmPanel(WebthingDevice, AlarmControlPanel):
     def __init__(self, thing, device_class):
         """Initialize an Webthing AlarmPanel."""
         WebthingDevice.__init__(self, thing)
-        self._alarm_panel = thing
+        # self._alarm_panel = thing
         self._url = f"http://dev.wormhole.monad.site:8000/{self._uid}"
-        self._state = ""
+        self._state = STATE_ALARM_DISARMED
         self._battery_level = 100
         self._device_class = device_class
+
+    @property
+    def supported_features(self) -> int:
+        """Return the list of supported features."""
+        return SUPPORT_ALARM_TRIGGER
+
+    async def async_alarm_disarm(self, code=None) -> None:
+        """Send disarm command."""
+        async with aiohttp.ClientSession() as session:
+            await session.post(
+                self._url + "/actions/set_on", json={"set_on": {"input": {"on": False}}}
+            )
+        self._state = STATE_ALARM_DISARMED
+
+    async def async_alarm_trigger(self, code=None) -> None:
+        """Send alarm trigger command."""
+        async with aiohttp.ClientSession() as session:
+            await session.post(
+                self._url + "/actions/set_on", json={"set_on": {"input": {"on": True}}}
+            )
+        self._state = STATE_ALARM_TRIGGERED
 
     @property
     def device_state_attributes(self):
@@ -93,19 +111,6 @@ class WebthingAlarmPanel(WebthingDevice, AlarmControlPanel):
         """Return the state of the binary sensor."""
         return self._state
 
-    @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement of this entity, if any."""
-        try:
-            return SENSOR_TYPES.get(self._device_class)[0]
-        except TypeError:
-            return None
-
-    @property
-    def device_class(self):
-        """Return the class of this device, from component DEVICE_CLASSES."""
-        return self._device_class
-
     async def async_update(self):
         """
         Fetch new state data for this light.
@@ -113,12 +118,6 @@ class WebthingAlarmPanel(WebthingDevice, AlarmControlPanel):
         """
         if self._ws.data.get("state") is not None:
             self._state = self._ws.data.get("state")
-            print(f"{self.name} property state:{self._state}")
-        if self._ws.data.get("temperature"):
-            self._state = self._ws.data.get("temperature")
-            print(f"{self.name} property state:{self._state}")
-        if self._ws.data.get("humidity") is not None:
-            self._state = self._ws.data.get("humidity")
             print(f"{self.name} property state:{self._state}")
         if self._ws.data.get("battery_level"):
             self._battery_level = self._ws.data.get("battery_level")
