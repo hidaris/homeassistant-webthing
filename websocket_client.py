@@ -11,7 +11,7 @@ class WS:
         self.sleep_time = 5
 
     async def get_state(self, uid):
-        uri = f"ws://dev.wormhole.monad.site:8000/{uid}"
+        uri = f"wss://cloud.iot.longan.link/things/{uid}"
         while True:
             # outer loop restarted every time the connection fails
             print(f"Creating new connection to {uri}")

@@ -50,7 +50,8 @@ class WebthingCover(WebthingDevice, CoverDevice):
         """Initialize an WebthingCover."""
         WebthingDevice.__init__(self, thing)
         self._cover = thing
-        self._url = f"http://dev.wormhole.monad.site:8000/{self._uid}"
+        self._url = f"http://127.0.0.1:8000/things/{self._uid}"
+        self._pos = 0
         self._state = "open"  # thing["properties"]["on"]
 
     @property
@@ -102,9 +103,10 @@ class WebthingCover(WebthingDevice, CoverDevice):
         Fetch new state data for this light.
         This is the only method that should fetch new data for Home Assistant.
         """
+        print(self._ws.data)
         if self._ws.data.get("state"):
             self._state = self._ws.data.get("state")
             print(f"property state:{self._state}")
         if self._ws.data.get("position"):
-            self.current_cover_position = self._ws.data.get("position")
-            print(f"property position:{self.current_cover_position}")
+            self._pos = self._ws.data.get("position")
+            print(f"property position:{self._pos}")

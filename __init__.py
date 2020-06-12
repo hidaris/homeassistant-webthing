@@ -18,8 +18,7 @@ async def fetch(session, url):
 async def async_setup(hass, config):
     # hass.states.async_set("hello_state.world", "Paulus")
     async with aiohttp.ClientSession() as session:
-        things = await fetch(session, "http://dev.wormhole.monad.site:8000")
-        print(things)
+        things = await fetch(session, "https://cloud.iot.longan.link/things")
 
     hass.data["things"] = things
     hass.helpers.discovery.async_load_platform("webthing", DOMAIN, {}, config)
@@ -34,13 +33,14 @@ class WebthingDevice(Entity):
         """Initialize the Xiaomi device."""
         self._ws = WS(self)
         self._is_available = True
+        self._gid = thing["id"]
         self._uid = thing["id"]
         self._name = thing["title"]
         self._type = thing["@type"]
         self._remove_unavailability_tracker = None
 
     def _add_push_data_job(self, *args):
-        self.hass.loop.create_task(self._ws.get_state(self._uid))
+        self.hass.loop.create_task(self._ws.get_state(self._gid))
 
     async def async_added_to_hass(self):
         """Start unavailability tracking."""
